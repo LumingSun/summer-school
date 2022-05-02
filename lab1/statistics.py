@@ -291,8 +291,20 @@ class ExpBackoffEstimator:
     """
     @staticmethod
     def estimate(range_query, table_stats):
-        # YOUR CODE HERE
-        pass
+        sels = []
+        ebo = 1
+        for col in range_query.column_names():
+            min_val = table_stats.columns[col].min_val()
+            max_val = table_stats.columns[col].max_val()
+            (left, right) = range_query.column_range(col, min_val, max_val)
+            col_cnt = table_stats.columns[col].between_row_count(left+1, right)  # (left, right) -> [left, right)
+            col_sel = col_cnt / table_stats.row_count
+            sels.append(col_sel)
+        sels = sorted(sels)
+        for i in range(min(len(sels),4)):
+        # ebo = sels[0] * sels[1]**(1/2) * sels[2]**(1/4) * sels[3]**(1/8)
+            ebo *= (sels[i]) **( (1/2)**(i) )
+        return ebo
 
 
 class MinSelEstimator:
@@ -301,6 +313,14 @@ class MinSelEstimator:
     """
     @staticmethod
     def estimate(range_query, table_stats):
-        # YOUR CODE HERE
-        pass
+        minsel = 1
+        for col in range_query.column_names():
+            min_val = table_stats.columns[col].min_val()
+            max_val = table_stats.columns[col].max_val()
+            (left, right) = range_query.column_range(col, min_val, max_val)
+            col_cnt = table_stats.columns[col].between_row_count(left+1, right)  # (left, right) -> [left, right)
+            col_sel = col_cnt / table_stats.row_count
+            if col_sel < minsel:
+                minsel = col_sel 
+        return minsel
 
