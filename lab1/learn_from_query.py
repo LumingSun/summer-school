@@ -115,10 +115,10 @@ def est_mlp(train_data, test_data, table_stats, columns):
             outputs = net(inputs)
             test_act_rows.extend(labels.numpy().tolist())
             test_est_rows.extend(outputs.numpy().tolist())
-    train_est_rows = np.array(train_est_rows)
-    train_act_rows = np.array(train_act_rows)
-    test_est_rows = np.array(test_est_rows)
-    test_act_rows = np.array(test_act_rows)
+    train_est_rows = np.exp(np.array(train_est_rows))
+    train_act_rows = np.exp(np.array(train_act_rows))
+    test_est_rows = np.exp(np.array(test_est_rows))
+    test_act_rows = np.exp(np.array(test_act_rows))
 
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
@@ -136,16 +136,16 @@ def est_xgb(train_data, test_data, table_stats, columns):
     param = {'objective': 'reg:squarederror'}
     bst = xgb.train(param, dtrain, num_round)
     ypred = bst.predict(dtrain)
-    train_est_rows = np.array(ypred)
-    train_act_rows = train_y
+    train_est_rows = np.exp(np.array(ypred))
+    train_act_rows = np.exp(train_y)
     
     test_x, test_y = preprocess_queries(test_data, table_stats, columns)
     test_est_rows, test_act_rows = [], []
     # YOUR CODE HERE: test procedure
     dtest = xgb.DMatrix(test_x)
     ypred = bst.predict(dtest)
-    test_est_rows = np.array(ypred)
-    test_act_rows = test_y
+    test_est_rows = np.exp(np.array(ypred))
+    test_act_rows = np.exp(test_y)
 
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
