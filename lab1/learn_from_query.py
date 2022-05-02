@@ -84,7 +84,7 @@ def est_mlp(train_data, test_data, table_stats, columns):
     net = MLP()
     optimizer = torch.optim.Adam(net.parameters(),lr=0.001)
     criterion = torch.nn.MSELoss()
-    EPOCHS = 2
+    EPOCHS = 20
     for epoch in range(EPOCHS):
         running_loss = 0
         for i, data in enumerate(train_loader):
