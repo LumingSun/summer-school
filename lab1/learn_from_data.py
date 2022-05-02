@@ -55,8 +55,13 @@ class LeafNode():
         self.hist = Histogram.construct_from(vals, 5)
 
     def estimate(self, range_query):
-        # YOUR CODE HERE
-        pass
+        hist_col = self.col_names[self.scope.col_idxs[0]]
+        if hist_col not in range_query.col_left:
+            return 1
+        sel = self.hist.between_row_count(range_query.col_left[hist_col],
+                                          range_query.col_right[hist_col],
+                                          0) / len(self.scope.row_idxs)
+        return sel
 
     def debug_print(self, prefix, indent):
         print('%sLeafNode: %s, %s' % (prefix, self.scope, self.hist))
@@ -72,8 +77,12 @@ class SumNode():
         self.rchild = rchild
 
     def estimate(self, range_query):
-        # YOUR CODE HERE
-        pass
+        left_sel = self.lchild.estimate(range_query)
+        right_sel = self.rchild.estimate(range_query)
+        left_cardinality = len(self.lchild.scope.row_idxs)
+        right_cardinality = len(self.rchild.scope.row_idxs)
+        sel = (left_sel * left_cardinality + right_sel * right_cardinality) / (left_cardinality + right_cardinality)
+        return sel
 
     def debug_print(self, prefix, indent):
         print('%sSumNode: %s' % (prefix, self.scope))
@@ -91,8 +100,10 @@ class ProductNode():
         self.rchild = rchild
 
     def estimate(self, range_query):
-        # YOUR CODE HERE
-        pass
+        left_sel = self.lchild.estimate(range_query)
+        right_sel = self.rchild.estimate(range_query)   
+             
+        return left_sel*right_sel
 
     def debug_print(self, prefix, indent):
         print('%sProductNode: %s' % (prefix, self.scope))
@@ -140,7 +151,17 @@ class SPN:
         It uses kmeans algorithm to split these rows.
         """
         # YOUR CODE HERE
-        pass
+        np_array = SPN.construct_np_array(dataset, scope)
+        cluster = 2
+        kmeans = KMeans(n_clusters=cluster, random_state=0,algorithm="full")
+        kmeans.fit(np_array)
+        left_scope, right_scope = [], []
+        for i in range(len(np_array)):
+            if(kmeans.labels_[i]==0):
+                left_scope.append(i)
+            else:
+                right_scope.append(i)
+        return NodeScope(left_scope, scope.col_idxs), NodeScope(right_scope,  scope.col_idxs)
 
     @staticmethod
     def split_cols(dataset, scope, force):
@@ -183,13 +204,18 @@ class SPN:
 
 
     @staticmethod
-    def get_next_op(scope, row_batch_threshold, split_col_failed):
+    def get_next_op(scope, row_batch_threshold, split_col_failed,leaf_node):
         """
         get_next_op returns the next operation to do when constructing a SPN.
         """
+        if leaf_node:
+            return Operation.CREATE_LEAF, False
         if scope.n_cols() == 1:                             # if there is only 1 column left, 
-            # YOUR CODE HERE
-            pass
+            if scope.n_rows() <= row_batch_threshold:
+                return Operation.CREATE_LEAF, False
+            else:
+                return Operation.SPLIT_ROWS, False
+        
         if split_col_failed:                                # if split_col failed last time, 
             return Operation.SPLIT_ROWS, False              # then split rows this time
 
@@ -205,11 +231,19 @@ class SPN:
         """
         split_col_failed = False
         split_col_force = False
+        leaf_node = False
         while True:
-            next_op, split_col_force = SPN.get_next_op(scope, row_batch_threshold, split_col_failed)
+            next_op, split_col_force = SPN.get_next_op(scope, row_batch_threshold, split_col_failed,leaf_node)
 
             if next_op == Operation.SPLIT_ROWS:
                 left_scope, right_scope = SPN.split_rows(dataset, scope)
+                if left_scope.n_rows() == 0 or right_scope.n_rows() == 0:
+                    if left_scope.n_cols() == 1:
+                        leaf_node = True
+                        continue                
+                    else:
+                        split_col_force = True
+                        continue
                 lchild = SPN.construct_top_down(dataset, col_names, left_scope, row_batch_threshold)
                 rchild = SPN.construct_top_down(dataset, col_names, right_scope, row_batch_threshold)
                 return SumNode(scope, lchild, rchild)
