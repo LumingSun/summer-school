@@ -1,3 +1,4 @@
 wget-log
 .vscode/launch.json
 lab1/__pycache__/
+lab2/__pycache__/
